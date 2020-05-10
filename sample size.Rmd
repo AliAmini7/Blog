@@ -1,0 +1,152 @@
+---
+title: "COVID-19-Clinical-Trial"
+author: "Ali Amini"
+date: "May 4, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(ggplot2)
+library(tidyverse)
+library(hrbrthemes)
+library(dplyr)
+library(statsr)
+```
+
+let's load the data
+
+```{r}
+df = data.frame(read.csv("COVID_19_SG.csv")) 
+```
+
+```{r}
+glimpse(df)
+```
+
+```{r}
+plot(df$Case, type = "l")
+```
+
+
+
+Let's reorder the data frame based on the case number. 
+```{r}
+df <- df[order(df$Case),]
+```
+
+```{r}
+plot(df$Case, type = "l")
+```
+
+**Data cleaning:**
+
+```{r}
+df[df == "-"]<- NA
+```
+
+```{r}
+glimpse(df)
+```
+
+```{r}
+df$Days.To.Recover<- as.numeric(df$Days.To.Recover)
+```
+
+
+```{r}
+hist(df$Days.To.Recover, breaks = 25, xlab = "Days to recover",
+     ylab = "Count", main = "Histogram of Days to Recover", col = "#69b3a2")
+```
+```{r}
+summary(df$Days.To.Recover)
+```
+
+```{r, include=FALSE}
+ggplot(df, aes(x = Age, y = Days.To.Recover ))+
+  geom_point(aes(color = Gender))
+```
+
+
+
+```{r}
+df %>%
+  filter(!is.na(Days.To.Recover))%>%
+  summarise(Standard_deviaiton = sd(Days.To.Recover))
+```
+
+```{r}
+SD <- sd(df$Days.To.Recover, na.rm=TRUE)
+n <- 250
+```
+
+```{r}
+SE = (2*SD^2/n)^0.5
+```
+
+```{r}
+X = seq(-16,16,0.1)
+Null = dnorm(X, sd = SE)
+Alt = dnorm(X, mean = -3, sd = SE)
+data <- data.frame(X, Null, Alt)
+```
+
+```{r}
+Z_star_95 = qnorm(0.025)* SE
+```
+
+
+```{r, include=FALSE}
+  ggplot(data=data, aes(x=X)) +
+  geom_line(mapping = aes(y = Null), color="#69b3a2", size=1)+
+  geom_line(mapping = aes(y = Alt))+
+  geom_area(mapping = aes(y = ifelse(X<= Z_star_95 , Alt, 0)), fill="#69b3a2", alpha=0.4 ) +
+  theme_ipsum(grid = FALSE, axis = TRUE)+
+  geom_vline(xintercept = c(Z_star_95, 0, -3), linetype="twodash")+
+  ylim(0,0.5)+
+  xlim(-6,5)+
+  ylab("")
+  
+```
+```{r}
+qnorm(0.8)-qnorm(0.025)
+```
+```{r}
+n <- seq(5,1500, by = 1)
+
+SE = (2*SD^2/n)^0.5
+
+Z95 = qnorm(0.025)* SE
+
+Power = pnorm(Z95, -3, SE)
+```
+
+```{r}
+plot(n,Power, type = "l")
+
+```
+
+```{r}
+n = seq(50,300,10)
+Power = c()
+j = 1
+for (i in n){
+simdf <- df %>%
+  filter(!is.na(Days.To.Recover))%>%
+  select(Case, Days.To.Recover)%>%
+  rep_sample_n(size = i, reps = 1000, replace = TRUE)%>%
+  summarise(Median = median(Days.To.Recover))
+B <- mean(simdf$Median) - quantile(simdf$Median, 0.025)
+A <- 3-B
+Power[j] <- sum(simdf$Median <= mean(simdf$Median)+A)/5000
+j <- j+1
+}
+plot(n, Power, type = "l")
+#glimpse(simdf)
+#hist(simdf$Median, breaks = 60)
+```
+
+
